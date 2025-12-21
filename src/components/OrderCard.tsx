@@ -3,16 +3,14 @@ import { Clock, User, MapPin, ChefHat, CheckCircle, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Order } from '@/types';
-import { useOrders } from '@/context/OrderContext';
 import { formatDistanceToNow } from 'date-fns';
 
 interface OrderCardProps {
   order: Order;
+  onStatusUpdate?: (orderId: string, status: Order['status']) => void;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order }) => {
-  const { updateOrderStatus } = useOrders();
-
+const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate }) => {
   const statusConfig = {
     pending: {
       label: 'New Order',
@@ -68,6 +66,12 @@ const OrderCard: React.FC<OrderCardProps> = ({ order }) => {
   const nextStatus = getNextStatus();
   const buttonLabel = getNextButtonLabel();
 
+  const handleStatusUpdate = () => {
+    if (nextStatus && onStatusUpdate) {
+      onStatusUpdate(order.id, nextStatus);
+    }
+  };
+
   return (
     <div className={`group relative overflow-hidden rounded-xl border-2 bg-card p-4 transition-all duration-300 ${
       order.status === 'pending' ? 'border-warning animate-pulse-slow' : 'border-border/50'
@@ -122,11 +126,11 @@ const OrderCard: React.FC<OrderCardProps> = ({ order }) => {
         </div>
       </div>
 
-      {nextStatus && buttonLabel && (
+      {nextStatus && buttonLabel && onStatusUpdate && (
         <Button
           variant={order.status === 'pending' ? 'warning' : order.status === 'preparing' ? 'default' : 'success'}
           className="w-full"
-          onClick={() => updateOrderStatus(order.id, nextStatus)}
+          onClick={handleStatusUpdate}
         >
           {buttonLabel}
         </Button>

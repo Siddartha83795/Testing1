@@ -8,11 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 
 const Header: React.FC = () => {
   const { itemCount, location } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { profile, isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 
@@ -29,19 +29,19 @@ const Header: React.FC = () => {
         </Link>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated && user ? (
+          {isAuthenticated && profile ? (
             <>
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
-                <span>{user.name}</span>
-                {user.role === 'staff' && (
+                <span>{profile.name}</span>
+                {profile.role === 'staff' && (
                   <Badge variant="outline" className="text-xs">
                     Staff
                   </Badge>
                 )}
               </div>
 
-              {user.role === 'client' && location && (
+              {profile.role === 'client' && location && (
                 <Link to="/menu">
                   <Button variant="glass" size="sm" className="relative">
                     <ShoppingCart className="h-4 w-4" />
@@ -60,7 +60,7 @@ const Header: React.FC = () => {
               </Button>
             </>
           ) : (
-            <Link to="/">
+            <Link to="/auth">
               <Button variant="outline" size="sm">
                 Login
               </Button>

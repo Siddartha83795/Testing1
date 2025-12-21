@@ -1,35 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { RefreshCw, Filter, LogOut } from 'lucide-react';
+import { RefreshCw, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderCard from '@/components/OrderCard';
 import { useAuth } from '@/context/AuthContext';
-import { useOrders } from '@/context/OrderContext';
-import { Order } from '@/types';
+import { useLocationOrders, useUpdateOrderStatus, OrderStatus } from '@/hooks/useOrders';
 
 const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const { orders, getOrdersByLocation } = useOrders();
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const { profile, signOut, isLoading: authLoading } = useAuth();
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  const staffLocation = profile?.location;
+  const { data: locationOrders = [], isLoading: ordersLoading, refetch } = useLocationOrders(staffLocation!);
+  const updateOrderStatus = useUpdateOrderStatus();
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setLastRefresh(new Date());
+      refetch();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refetch]);
 
-  if (!user || user.role !== 'staff') {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!profile || profile.role !== 'staff') {
     return <Navigate to="/" replace />;
   }
 
-  const locationOrders = user.location ? getOrdersByLocation(user.location) : orders;
-  
   const filteredOrders = statusFilter === 'all' 
     ? locationOrders 
     : locationOrders.filter((order) => order.status === statusFilter);
@@ -38,11 +47,20 @@ const StaffDashboard: React.FC = () => {
   const preparingCount = locationOrders.filter((o) => o.status === 'preparing').length;
   const readyCount = locationOrders.filter((o) => o.status === 'ready').length;
 
-  const locationName = user.location === 'medical' ? 'Medical Cafeteria' : 'Bit Bites';
+  const locationName = staffLocation === 'medical' ? 'Medical Cafeteria' : 'Bit Bites';
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
+  };
+
+  const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
+    updateOrderStatus.mutate({ orderId, status: newStatus });
+  };
+
+  const handleRefresh = () => {
+    setLastRefresh(new Date());
+    refetch();
   };
 
   return (
@@ -59,7 +77,7 @@ const StaffDashboard: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setLastRefresh(new Date())}
+              onClick={handleRefresh}
               className="gap-2"
             >
               <RefreshCw className="h-4 w-4" />
@@ -109,16 +127,39 @@ const StaffDashboard: React.FC = () => {
         </Tabs>
 
         {/* Orders Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredOrders.map((order) => (
-            <OrderCard key={order.id} order={order} />
-          ))}
-        </div>
-
-        {filteredOrders.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No orders found</p>
+        {ordersLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map((order) => (
+                <OrderCard 
+                  key={order.id} 
+                  order={{
+                    id: order.id,
+                    token: order.token,
+                    location: order.location,
+                    items: order.items,
+                    total: Number(order.total),
+                    status: order.status,
+                    clientName: order.client_name,
+                    tableNumber: order.table_number || undefined,
+                    createdAt: new Date(order.created_at),
+                    updatedAt: new Date(order.updated_at),
+                  }}
+                  onStatusUpdate={handleStatusUpdate}
+                />
+              ))}
+            </div>
+
+            {filteredOrders.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No orders found</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Last refresh indicator */}

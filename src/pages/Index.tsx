@@ -1,22 +1,38 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Utensils, Users, Zap, ArrowRight, Coffee, Stethoscope } from 'lucide-react';
+import { Utensils, Users, Zap, ArrowRight, Coffee, Stethoscope, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { Location } from '@/types';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { isAuthenticated, profile, demoLogin, isLoading } = useAuth();
 
-  const handleClientDemo = () => {
-    login('client');
-    navigate('/locations');
+  const handleClientDemo = async () => {
+    const { error } = await demoLogin('client');
+    if (!error) {
+      navigate('/locations');
+    }
   };
 
-  const handleStaffDemo = (location: Location) => {
-    login('staff', location);
-    navigate('/staff');
+  const handleStaffDemo = async (location: 'medical' | 'bitbites') => {
+    const demoRole = location === 'medical' ? 'staff-medical' : 'staff-bitbites';
+    const { error } = await demoLogin(demoRole);
+    if (!error) {
+      navigate('/staff');
+    }
+  };
+
+  const handleGetStarted = () => {
+    if (isAuthenticated && profile) {
+      if (profile.role === 'staff') {
+        navigate('/staff');
+      } else {
+        navigate('/locations');
+      }
+    } else {
+      navigate('/auth');
+    }
   };
 
   return (
@@ -48,13 +64,25 @@ const Index: React.FC = () => {
               <Button
                 variant="hero"
                 size="xl"
-                onClick={handleClientDemo}
+                onClick={handleGetStarted}
                 className="gap-2"
               >
                 <Utensils className="h-5 w-5" />
-                Order Now (Demo)
+                {isAuthenticated ? 'Continue Ordering' : 'Get Started'}
                 <ArrowRight className="h-5 w-5" />
               </Button>
+              
+              {!isAuthenticated && (
+                <Button
+                  variant="outline"
+                  size="xl"
+                  onClick={() => navigate('/auth')}
+                  className="gap-2"
+                >
+                  <LogIn className="h-5 w-5" />
+                  Sign In
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -145,16 +173,27 @@ const Index: React.FC = () => {
       <section className="py-20 bg-card/30">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <h2 className="font-display text-2xl font-bold mb-4">Staff Access</h2>
+            <h2 className="font-display text-2xl font-bold mb-4">Quick Demo Access</h2>
             <p className="text-muted-foreground mb-8">
-              Demo access to the staff dashboard for managing orders
+              Try the app instantly without registration
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                variant="default"
+                size="lg"
+                onClick={handleClientDemo}
+                className="gap-2"
+                disabled={isLoading}
+              >
+                <Utensils className="h-4 w-4" />
+                Customer Demo
+              </Button>
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => handleStaffDemo('medical')}
                 className="gap-2"
+                disabled={isLoading}
               >
                 <Stethoscope className="h-4 w-4" />
                 Medical Staff Demo
@@ -164,6 +203,7 @@ const Index: React.FC = () => {
                 size="lg"
                 onClick={() => handleStaffDemo('bitbites')}
                 className="gap-2"
+                disabled={isLoading}
               >
                 <Coffee className="h-4 w-4" />
                 Bit Bites Staff Demo
