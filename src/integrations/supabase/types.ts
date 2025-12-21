@@ -14,16 +14,164 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      menu_items: {
+        Row: {
+          available: boolean | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image: string | null
+          location: Database["public"]["Enums"]["app_location"]
+          name: string
+          price: number
+        }
+        Insert: {
+          available?: boolean | null
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          location: Database["public"]["Enums"]["app_location"]
+          name: string
+          price: number
+        }
+        Update: {
+          available?: boolean | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          location?: Database["public"]["Enums"]["app_location"]
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          client_name: string
+          client_phone: string | null
+          created_at: string
+          id: string
+          items: Json
+          location: Database["public"]["Enums"]["app_location"]
+          status: Database["public"]["Enums"]["order_status"]
+          table_number: string | null
+          token: string
+          total: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          client_name: string
+          client_phone?: string | null
+          created_at?: string
+          id?: string
+          items: Json
+          location: Database["public"]["Enums"]["app_location"]
+          status?: Database["public"]["Enums"]["order_status"]
+          table_number?: string | null
+          token: string
+          total: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          client_name?: string
+          client_phone?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          location?: Database["public"]["Enums"]["app_location"]
+          status?: Database["public"]["Enums"]["order_status"]
+          table_number?: string | null
+          token?: string
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          location: Database["public"]["Enums"]["app_location"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          location?: Database["public"]["Enums"]["app_location"] | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          location?: Database["public"]["Enums"]["app_location"] | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_staff_location: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_location"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_location: "medical" | "bitbites"
+      app_role: "client" | "staff" | "admin"
+      order_status:
+        | "pending"
+        | "preparing"
+        | "ready"
+        | "completed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +298,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_location: ["medical", "bitbites"],
+      app_role: ["client", "staff", "admin"],
+      order_status: ["pending", "preparing", "ready", "completed", "cancelled"],
+    },
   },
 } as const
