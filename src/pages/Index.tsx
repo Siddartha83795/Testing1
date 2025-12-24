@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Utensils, Users, Zap, Coffee, Stethoscope, LogIn, UserPlus } from 'lucide-react';
+import { Utensils, Users, Zap, Coffee, Stethoscope, LogIn, UserPlus, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
@@ -13,9 +13,8 @@ const Index: React.FC = () => {
     if (isAuthenticated && profile && !isLoading) {
       if (profile.role === 'staff') {
         navigate('/staff');
-      } else {
-        navigate('/locations');
       }
+      // Don't auto-redirect clients - let them choose between dashboard/locations
     }
   }, [isAuthenticated, profile, isLoading, navigate]);
 
@@ -29,6 +28,14 @@ const Index: React.FC = () => {
 
   const handleLogin = () => {
     navigate('/auth');
+  };
+
+  const handleDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  const handleOrderFood = () => {
+    navigate('/locations');
   };
 
   return (
@@ -56,18 +63,41 @@ const Index: React.FC = () => {
               Login once, order anytime. Skip the queue.
             </p>
 
-            {/* Login/Register Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-slide-up" style={{ animationDelay: '0.15s' }}>
-              <Button
-                variant="hero"
-                size="lg"
-                onClick={handleLogin}
-                className="gap-2"
-              >
-                <LogIn className="h-5 w-5" />
-                Login / Register
-              </Button>
-            </div>
+            {/* Login/Register or Authenticated User Buttons */}
+            {isAuthenticated && profile ? (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+                <Button
+                  variant="hero"
+                  size="lg"
+                  onClick={handleDashboard}
+                  className="gap-2"
+                >
+                  <LayoutDashboard className="h-5 w-5" />
+                  My Dashboard & Orders
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleOrderFood}
+                  className="gap-2"
+                >
+                  <Utensils className="h-5 w-5" />
+                  Order Food
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+                <Button
+                  variant="hero"
+                  size="lg"
+                  onClick={handleLogin}
+                  className="gap-2"
+                >
+                  <LogIn className="h-5 w-5" />
+                  Login / Register
+                </Button>
+              </div>
+            )}
 
             {/* Demo Section */}
             <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.2s' }}>

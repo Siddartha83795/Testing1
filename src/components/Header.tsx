@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, UtensilsCrossed, Home, LogIn, LogOut, User } from 'lucide-react';
+import { ShoppingCart, UtensilsCrossed, Home, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/CartContext';
@@ -38,6 +38,14 @@ const Header: React.FC = () => {
 
           {isAuthenticated && profile ? (
             <>
+              {profile.role !== 'staff' && (
+                <Link to="/dashboard">
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span className="hidden sm:inline">My Orders</span>
+                  </Button>
+                </Link>
+              )}
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground px-2">
                 <User className="h-4 w-4" />
                 <span>{profile.name}</span>

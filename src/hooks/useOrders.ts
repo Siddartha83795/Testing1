@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Location, CartItem } from '@/types';
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 
 export interface OrderDB {
   id: string;
@@ -25,6 +25,7 @@ interface CreateOrderInput {
   items: CartItem[];
   location: Location;
   clientName: string;
+  clientPhone?: string;
 }
 
 const generateToken = (location: Location): string => {
@@ -46,13 +47,13 @@ export const useCreateOrder = () => {
         .from('orders')
         .insert({
           token,
-          user_id: null, // Demo mode - no auth required
+          user_id: user?.id || null,
           location: input.location as 'medical' | 'bitbites',
           items: JSON.parse(JSON.stringify(input.items)),
           total,
           status: 'pending' as const,
           client_name: input.clientName,
-          client_phone: null,
+          client_phone: input.clientPhone || null,
           table_number: null,
         })
         .select()
@@ -73,6 +74,7 @@ export const useCreateOrder = () => {
   });
 };
 
+// Get all orders for the current logged-in client
 export const useClientOrders = () => {
   const { user } = useAuth();
 
@@ -86,6 +88,93 @@ export const useClientOrders = () => {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return data.map((order) => ({
+        ...order,
+        items: order.items as unknown as CartItem[],
+      })) as OrderDB[];
+    },
+    enabled: !!user?.id,
+  });
+};
+
+// Get active orders for logged-in client (pending, preparing, ready)
+export const useClientActiveOrders = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['orders', 'client', 'active', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'preparing', 'ready'])
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return data.map((order) => ({
+        ...order,
+        items: order.items as unknown as CartItem[],
+      })) as OrderDB[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Real-time subscription for order updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`client-orders-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders', 'client'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
+
+  return query;
+};
+
+// Get order history for logged-in client (completed, cancelled)
+export const useClientOrderHistory = () => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['orders', 'client', 'history', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['completed', 'cancelled'])
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (error) {
         throw error;
@@ -139,7 +228,6 @@ export const useLocationOrders = (location: Location) => {
           filter: `location=eq.${location}`,
         },
         () => {
-          // Refetch orders when any change occurs
           queryClient.invalidateQueries({ queryKey: ['orders', 'location', location] });
         }
       )
