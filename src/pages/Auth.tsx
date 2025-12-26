@@ -27,15 +27,15 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isLoading, signIn, signUp, demoLogin, profile } = useAuth();
-  
+
   const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'demo'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   // Signup form
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -57,7 +57,7 @@ const Auth: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validation = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
     if (!validation.success) {
       toast({
@@ -88,14 +88,14 @@ const Auth: React.FC = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validation = signupSchema.safeParse({
       name: signupName,
       email: signupEmail,
       password: signupPassword,
       phone: signupPhone,
     });
-    
+
     if (!validation.success) {
       toast({
         title: 'Validation Error',
@@ -196,7 +196,7 @@ const Auth: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup' | 'demo')}>
               <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -331,11 +331,10 @@ const Auth: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setSignupRole('client')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          signupRole === 'client'
+                        className={`p-4 rounded-xl border-2 transition-all ${signupRole === 'client'
                             ? 'border-primary bg-primary/10'
                             : 'border-border hover:border-primary/50'
-                        }`}
+                          }`}
                       >
                         <User className="h-6 w-6 mx-auto mb-2 text-primary" />
                         <p className="text-sm font-medium">Customer</p>
@@ -343,11 +342,10 @@ const Auth: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setSignupRole('staff')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          signupRole === 'staff'
+                        className={`p-4 rounded-xl border-2 transition-all ${signupRole === 'staff'
                             ? 'border-primary bg-primary/10'
                             : 'border-border hover:border-primary/50'
-                        }`}
+                          }`}
                       >
                         <Utensils className="h-6 w-6 mx-auto mb-2 text-primary" />
                         <p className="text-sm font-medium">Staff</p>
@@ -363,11 +361,10 @@ const Auth: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSignupLocation('medical')}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            signupLocation === 'medical'
+                          className={`p-4 rounded-xl border-2 transition-all ${signupLocation === 'medical'
                               ? 'border-primary bg-primary/10'
                               : 'border-border hover:border-primary/50'
-                          }`}
+                            }`}
                         >
                           <Stethoscope className="h-5 w-5 mx-auto mb-1 text-primary" />
                           <p className="text-xs font-medium">Medical Cafeteria</p>
@@ -375,11 +372,10 @@ const Auth: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSignupLocation('bitbites')}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            signupLocation === 'bitbites'
+                          className={`p-4 rounded-xl border-2 transition-all ${signupLocation === 'bitbites'
                               ? 'border-accent bg-accent/10'
                               : 'border-border hover:border-accent/50'
-                          }`}
+                            }`}
                         >
                           <Coffee className="h-5 w-5 mx-auto mb-1 text-accent" />
                           <p className="text-xs font-medium">Bit Bites</p>

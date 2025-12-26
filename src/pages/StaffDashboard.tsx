@@ -13,14 +13,14 @@ const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
   const { isAuthenticated, profile, isLoading: authLoading } = useAuth();
-  
+
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Get location from auth profile (for logged-in staff) or URL state (for demo)
   const demoLocation = routerLocation.state?.location as Location | undefined;
   const staffLocation = profile?.location || demoLocation;
-  
+
   const { data: locationOrders = [], isLoading: ordersLoading, refetch } = useLocationOrders(staffLocation!);
   const updateOrderStatus = useUpdateOrderStatus();
 
@@ -73,8 +73,8 @@ const StaffDashboard: React.FC = () => {
     );
   }
 
-  const filteredOrders = statusFilter === 'all' 
-    ? locationOrders 
+  const filteredOrders = statusFilter === 'all'
+    ? locationOrders
     : locationOrders.filter((order) => order.status === statusFilter);
 
   const pendingCount = locationOrders.filter((o) => o.status === 'pending').length;
@@ -159,7 +159,7 @@ const StaffDashboard: React.FC = () => {
         </div>
 
         {/* Filter Tabs */}
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="mb-6">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as OrderStatus | 'all')} className="mb-6">
           <TabsList className="grid w-full grid-cols-4 bg-secondary/50">
             <TabsTrigger value="all" className="gap-1">
               All
@@ -193,12 +193,11 @@ const StaffDashboard: React.FC = () => {
                         🎫 {order.token}
                       </span>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      order.status === 'preparing' ? 'bg-blue-100 text-blue-800' :
-                      order.status === 'ready' ? 'bg-green-100 text-green-800' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        order.status === 'preparing' ? 'bg-blue-100 text-blue-800' :
+                          order.status === 'ready' ? 'bg-green-100 text-green-800' :
+                            'bg-muted text-muted-foreground'
+                      }`}>
                       {order.status.toUpperCase()}
                     </span>
                   </div>
@@ -221,7 +220,7 @@ const StaffDashboard: React.FC = () => {
                   <div className="border-t border-border/50 pt-3 mb-4">
                     <h4 className="font-medium text-sm mb-2">Order Items:</h4>
                     <ul className="space-y-1">
-                      {(order.items as any[]).map((item, idx) => (
+                      {(order.items as { name: string; quantity: number; price: number }[]).map((item, idx) => (
                         <li key={idx} className="flex justify-between text-sm">
                           <span>{item.name} x{item.quantity}</span>
                           <span className="text-muted-foreground">₹{item.price * item.quantity}</span>
