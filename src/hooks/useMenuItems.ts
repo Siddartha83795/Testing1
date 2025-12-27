@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { API_BASE_URL } from '@/api/config';
 import { Location } from '@/types';
 
 export interface MenuItemDB {
-  id: string;
+  id: string; // MongoDB _id mapped to id
   name: string;
   description: string | null;
   price: number;
@@ -11,28 +11,24 @@ export interface MenuItemDB {
   image: string | null;
   location: 'medical' | 'bitbites';
   available: boolean;
-  created_at: string;
+  created_at?: string;
 }
 
 export const useMenuItems = (location?: Location) => {
   return useQuery({
     queryKey: ['menu-items', location],
     queryFn: async () => {
-      let query = supabase
-        .from('menu_items')
-        .select('*')
-        .eq('available', true);
-      
+      let url = `${API_BASE_URL}/menu`;
       if (location) {
-        query = query.eq('location', location);
+        url += `?location=${location}`;
       }
-      
-      const { data, error } = await query.order('category', { ascending: true });
-      
-      if (error) {
-        throw error;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch menu items');
       }
-      
+
+      const data = await response.json();
       return data as MenuItemDB[];
     },
   });
@@ -42,17 +38,13 @@ export const useMenuItemsByLocation = (location: Location) => {
   return useQuery({
     queryKey: ['menu-items', location],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('location', location)
-        .eq('available', true)
-        .order('category', { ascending: true });
-      
-      if (error) {
-        throw error;
+      const response = await fetch(`${API_BASE_URL}/menu?location=${location}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch menu items');
       }
-      
+
+      const data = await response.json();
       return data as MenuItemDB[];
     },
     enabled: !!location,

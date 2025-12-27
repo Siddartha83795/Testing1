@@ -2,12 +2,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Location } from '@/types';
+import { API_BASE_URL, fetchConfig } from '@/api/config';
+import { useToast } from '@/hooks/use-toast';
 
 type AppRole = 'client' | 'staff' | 'admin';
 
 interface UserProfile {
-  id: string;
-  userId: string;
+  id: string; // MongoDB _id
+  userId: string; // Supabase ID
   name: string;
   email: string;
   phone?: string;
@@ -41,48 +43,106 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Fetch user profile and role
-  const fetchProfile = async (userId: string) => {
+  // Fetch user profile from MongoDB
+  const fetchProfile = async (currentUser: User) => {
     try {
-      // Get profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
+      const response = await fetch(`${API_BASE_URL}/users/${currentUser.id}`).catch(err => {
+        console.error('Frontend Fetch Error:', err);
         return null;
+      });
+
+      if (response && response.ok) {
+        const profileData = await response.json();
+        return {
+          id: profileData.id || profileData._id,
+          userId: profileData.userId,
+          name: profileData.name,
+          email: profileData.email,
+          phone: profileData.phone,
+          role: profileData.role as AppRole,
+          location: profileData.location as Location | undefined,
+        } as UserProfile;
       }
 
-      // Get role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      // If 404 (User exists in Supabase but not in MongoDB), create it
+      // OR if fetch failed (response is null), fallback to metadata temporarily
+      if (!response || response.status === 404) {
+        console.log('Profile not found in MongoDB or Backend Down, falling back to metadata...');
 
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-        return null;
+        if (!response) {
+          toast({
+            title: "Backend Connection Issue",
+            description: "Could not connect to the backend. Using temporary profile data.",
+            variant: "destructive",
+          });
+        }
+
+        const metadata = currentUser.user_metadata;
+        const newProfile = {
+          userId: currentUser.id,
+          email: currentUser.email || '',
+          name: metadata.name || 'User',
+          role: (metadata.role as AppRole) || 'client',
+          phone: metadata.phone || undefined,
+          location: metadata.location as Location | undefined,
+        };
+
+        // Try to create in Mongo if backend is reachable (i.e. it was a 404)
+        if (response && response.status === 404) {
+          const createResponse = await fetch(`${API_BASE_URL}/users`, {
+            ...fetchConfig,
+            method: 'POST',
+            body: JSON.stringify(newProfile),
+          }).catch(() => null);
+
+          if (createResponse && createResponse.ok) {
+            const createdProfile = await createResponse.json();
+            return {
+              id: createdProfile.id || createdProfile._id,
+              userId: createdProfile.userId,
+              name: createdProfile.name,
+              email: createdProfile.email,
+              phone: createdProfile.phone,
+              role: createdProfile.role as AppRole,
+              location: createdProfile.location as Location | undefined,
+            } as UserProfile;
+          }
+        }
+
+        // Final Fallback: Return a "TEMPORARY" profile constructed from metadata
+        // This allows the user to browse/redirect even if backend is dead.
+        return {
+          id: 'temp-id',
+          userId: newProfile.userId,
+          name: newProfile.name,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          role: newProfile.role,
+          location: newProfile.location,
+        } as UserProfile;
       }
 
-      const userProfile: UserProfile = {
-        id: profileData.id,
-        userId: profileData.user_id,
-        name: profileData.name,
-        email: profileData.email,
-        phone: profileData.phone,
-        role: roleData.role as AppRole,
-        location: roleData.location as Location | undefined,
-      };
-
-      return userProfile;
+      return null;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
-      return null;
+      toast({
+        title: "Profile Load Error",
+        description: "An unexpected error occurred while loading your profile. Using temporary data.",
+        variant: "destructive",
+      });
+      // Even in catch, try to fallback
+      const metadata = currentUser.user_metadata;
+      return {
+        id: 'temp-id',
+        userId: currentUser.id,
+        name: metadata.name || 'User',
+        email: currentUser.email || '',
+        phone: metadata.phone,
+        role: (metadata.role as AppRole) || 'client',
+        location: metadata.location as Location | undefined,
+      } as UserProfile;
     }
   };
 
@@ -92,11 +152,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer profile fetch to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id).then(setProfile);
+            fetchProfile(session.user).then(setProfile);
           }, 0);
         } else {
           setProfile(null);
@@ -108,9 +168,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        fetchProfile(session.user.id).then((p) => {
+        fetchProfile(session.user).then((p) => {
           setProfile(p);
           setIsLoading(false);
         });
@@ -122,31 +182,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription.unsubscribe();
   }, []);
 
+  const createMongoProfile = async (userId: string, email: string, name: string, role: AppRole, phone?: string, location?: Location) => {
+    try {
+      await fetch(`${API_BASE_URL}/users`, {
+        ...fetchConfig,
+        method: 'POST',
+        body: JSON.stringify({
+          userId,
+          email,
+          name,
+          role,
+          phone,
+          location
+        })
+      });
+    } catch (e) {
+      console.error("Failed to create Mongo Profile", e);
+    }
+  };
+
   const signUp = async (
-    email: string, 
-    password: string, 
-    name: string, 
+    email: string,
+    password: string,
+    name: string,
     phone?: string,
     role: AppRole = 'client',
     location?: Location
   ): Promise<{ error: Error | null }> => {
     const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
+
+    // 1. Sign up in Supabase (Auth only)
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
           name,
-          phone,
+          phone, // We still keep metadata in Supabase for convenience/fallback
           role,
-          location,
-        },
+          location
+        }
       },
     });
 
-    return { error: error ? new Error(error.message) : null };
+    if (error) return { error: new Error(error.message) };
+
+    // 2. Create Profile in MongoDB
+    if (data.user) {
+      await createMongoProfile(data.user.id, email, name, role, phone, location);
+    }
+
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
@@ -165,7 +252,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const demoLogin = async (role: 'client' | 'staff-medical' | 'staff-bitbites'): Promise<{ error: Error | null }> => {
     const credentials = DEMO_CREDENTIALS[role];
-    
+
     // Try to sign in first
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: credentials.email,
@@ -182,7 +269,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const demoLocation: Location | undefined = role === 'staff-medical' ? 'medical' : role === 'staff-bitbites' ? 'bitbites' : undefined;
       const demoName = role === 'client' ? 'Demo Customer' : role === 'staff-medical' ? 'Medical Staff' : 'Bit Bites Staff';
 
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: credentials.email,
         password: credentials.password,
         options: {
@@ -197,6 +284,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (signUpError) {
         return { error: new Error(signUpError.message) };
+      }
+
+      // Create Profile in MongoDB
+      if (data.user) {
+        await createMongoProfile(data.user.id, credentials.email, demoName, demoRole, undefined, demoLocation);
       }
 
       // Auto-confirm is enabled, so try signing in again

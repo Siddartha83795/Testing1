@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Location, CartItem } from '@/types';
+import { API_BASE_URL, fetchConfig } from '@/api/config';
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 
@@ -43,30 +43,30 @@ export const useCreateOrder = () => {
       const token = generateToken(input.location);
       const total = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-      const { data, error } = await supabase
-        .from('orders')
-        .insert({
-          token,
-          user_id: user?.id || null,
-          location: input.location as 'medical' | 'bitbites',
-          items: JSON.parse(JSON.stringify(input.items)),
-          total,
-          status: 'pending' as const,
-          client_name: input.clientName,
-          client_phone: input.clientPhone || null,
-          table_number: null,
-        })
-        .select()
-        .single();
+      const orderData = {
+        token,
+        user_id: user?.id || null, // Supabase Auth ID
+        location: input.location,
+        items: input.items,
+        total,
+        status: 'pending',
+        client_name: input.clientName,
+        client_phone: input.clientPhone || null,
+        table_number: null,
+      };
 
-      if (error) {
-        throw error;
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        ...fetchConfig,
+        method: 'POST',
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create order');
       }
 
-      return {
-        ...data,
-        items: data.items as unknown as CartItem[],
-      } as OrderDB;
+      const data = await response.json();
+      return data as OrderDB;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -83,20 +83,13 @@ export const useClientOrders = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      const response = await fetch(`${API_BASE_URL}/orders?user_id=${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
       }
 
-      return data.map((order) => ({
-        ...order,
-        items: order.items as unknown as CartItem[],
-      })) as OrderDB[];
+      const data = await response.json();
+      return data as OrderDB[];
     },
     enabled: !!user?.id,
   });
@@ -112,48 +105,26 @@ export const useClientActiveOrders = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      // We'll fetch all and filter for now, or could add advanced filtering to backend
+      const response = await fetch(`${API_BASE_URL}/orders?user_id=${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch active orders');
       }
 
-      return data.map((order) => ({
-        ...order,
-        items: order.items as unknown as CartItem[],
-      })) as OrderDB[];
+      const data: OrderDB[] = await response.json();
+      return data.filter(order => ['pending', 'preparing', 'ready'].includes(order.status));
     },
     enabled: !!user?.id,
   });
 
-  // Real-time subscription for order updates
+  // Polling for updates since we lost Real-time (for now)
   useEffect(() => {
     if (!user?.id) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['orders', 'client'] });
+    }, 10000); // Poll every 10s
 
-    const channel = supabase
-      .channel(`client-orders-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', 'client'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, [user?.id, queryClient]);
 
   return query;
@@ -168,22 +139,13 @@ export const useClientOrderHistory = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('status', ['completed', 'cancelled'])
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) {
-        throw error;
+      const response = await fetch(`${API_BASE_URL}/orders?user_id=${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch history');
       }
 
-      return data.map((order) => ({
-        ...order,
-        items: order.items as unknown as CartItem[],
-      })) as OrderDB[];
+      const data: OrderDB[] = await response.json();
+      return data.filter(order => ['completed', 'cancelled'].includes(order.status));
     },
     enabled: !!user?.id,
   });
@@ -195,47 +157,24 @@ export const useLocationOrders = (location: Location) => {
   const query = useQuery({
     queryKey: ['orders', 'location', location],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('location', location)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      const response = await fetch(`${API_BASE_URL}/orders?location=${location}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch location orders');
       }
 
-      return data.map((order) => ({
-        ...order,
-        items: order.items as unknown as CartItem[],
-      })) as OrderDB[];
+      return await response.json() as OrderDB[];
     },
     enabled: !!location,
   });
 
-  // Real-time subscription for order updates
+  // Polling for updates
   useEffect(() => {
     if (!location) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['orders', 'location', location] });
+    }, 10000);
 
-    const channel = supabase
-      .channel(`orders-${location}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `location=eq.${location}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', 'location', location] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, [location, queryClient]);
 
   return query;
@@ -246,18 +185,17 @@ export const useUpdateOrderStatus = () => {
 
   return useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
-      const { data, error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId)
-        .select()
-        .single();
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+        ...fetchConfig,
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
       }
 
-      return data;
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
