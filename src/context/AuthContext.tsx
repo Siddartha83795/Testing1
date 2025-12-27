@@ -180,6 +180,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createMongoProfile = async (userId: string, email: string, name: string, role: AppRole, phone?: string, location?: Location) => {

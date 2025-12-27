@@ -22,7 +22,7 @@ router.post('/', async (req, res) => {
     const { userId, email, name, role, phone, location } = req.body;
 
     try {
-        let user = await User.findOne({ userId });
+        const user = await User.findOne({ userId });
 
         if (user) {
             // Update existing

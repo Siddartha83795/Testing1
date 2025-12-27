@@ -8,7 +8,8 @@ router.get('/', async (req, res) => {
     try {
         const { location, user_id, status } = req.query;
 
-        let query: any = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const query: any = {};
 
         if (location) query.location = location;
         if (user_id) query.user_id = user_id;
