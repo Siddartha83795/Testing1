@@ -13,7 +13,7 @@ pipeline {
         CONTAINER_NAME = 'testing1-app'
         APP_PORT = '5000'
 
-        ENV_FILE = '/home/ubuntu/envs/backend.prod.env'
+        ENV_FILE = '/opt/app/envs/backend.prod.env'
     }
 
     stages {
