@@ -18,11 +18,18 @@ pipeline {
 
     stages {
 
+        stage('IDENTITY CHECK') {
+            steps {
+                sh 'echo ">>> RUNNING TESTING1 JENKINSFILE – ENV_FILE=${ENV_FILE}"'
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
+
 
         stage('Build Docker Image') {
             steps {
