@@ -92,7 +92,7 @@ pipeline {
             echo '❌ Deployment failed!'
         }
         always {
-            sh 'docker system prune -f || true'
+            sh 'docker image prune -f || true'
         }
     }
 }
