@@ -11,7 +11,7 @@ pipeline {
         DOCKER_CREDS = 'dockerhub-creds'
 
         CONTAINER_NAME = 'testing1-app'
-        APP_PORT = '5000'
+        APP_PORT = '3000'
 
         ENV_FILE ='/opt/app/envs/backend.prod.env'
     }
