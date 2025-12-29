@@ -1,2 +1,2 @@
-VITE_API_URL=http://44.203.27.106:3000
 /// <reference types="vite/client" />
+
