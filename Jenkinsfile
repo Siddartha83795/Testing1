@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = 'siddartha83795/testing1'
+        DOCKER_IMAGE = 'siddhartha005/testing1'
         DOCKER_TAG   = 'latest'
         DOCKER_CREDS = 'dockerhub-creds'
 
