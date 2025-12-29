@@ -51,28 +51,27 @@ pipeline {
             }
         }
 
-       stage('Deploy Container on EC2') {
-    steps {
-        sh '''
-            docker stop testing1-app || true
-            docker rm testing1-app || true
+        stage('Deploy Container on EC2') {
+            steps {
+                sh '''
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
 
-            docker run -d \
-              --name testing1-app \
-              --env-file /home/ubuntu/envs/backend.prod.env \
-              -p 5000:5000 \
-              --restart unless-stopped \
-              siddhartha005/testing1:latest
-        '''
-    }
-}
-
+                    docker run -d \
+                      --name ${CONTAINER_NAME} \
+                      --env-file ${ENV_FILE} \
+                      -p ${APP_PORT}:${APP_PORT} \
+                      --restart unless-stopped \
+                      ${DOCKER_IMAGE}:${DOCKER_TAG}
+                '''
+            }
+        }
 
         stage('Verify Deployment') {
             steps {
                 sh '''
                     sleep 5
-                    curl -f http://localhost:5000 || exit 1
+                    curl -f http://localhost:${APP_PORT} || exit 1
                 '''
             }
         }
